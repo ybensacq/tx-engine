@@ -25,4 +25,7 @@ pub enum Transaction {
 
     #[error("Cannot chargeback transaction ID {0} as it is not a deposit")]
     InvalidChargeback(u32),
+
+    #[error("Cannot find customer account {0}")]
+    AccountNotFound(u16),
 }

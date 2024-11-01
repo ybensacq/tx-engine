@@ -41,110 +41,117 @@ impl Engine {
     }
 
     fn process_deposit(&mut self, transaction: Transaction) -> Result<(), TransactionError> {
-        let account = self.accounts.get_mut(&transaction.client).unwrap();
-
-        if let Some(amount) = transaction.amount {
-            account.available += amount;
-            account.total += amount;
-            self.transactions.insert(transaction.tx, transaction);
-            Ok(())
+        if let Some(account) = self.accounts.get_mut(&transaction.client) {
+            if let Some(amount) = transaction.amount {
+                account.available += amount;
+                account.total += amount;
+                self.transactions.insert(transaction.tx, transaction);
+                Ok(())
+            } else {
+                Err(TransactionError::InvalidAmount(transaction.tx))
+            }
         } else {
-            Err(TransactionError::InvalidAmount(transaction.tx))
+            eprintln!("Account not found for client ID: {}", transaction.client);
+            Ok(())
         }
     }
 
     fn process_withdrawal(&mut self, transaction: Transaction) -> Result<(), TransactionError> {
-        let account = self.accounts.get_mut(&transaction.client).unwrap();
-
-        if let Some(amount) = transaction.amount {
-            if account.available >= amount {
-                account.available -= amount;
-                account.total -= amount;
-                self.transactions.insert(transaction.tx, transaction);
-                Ok(())
+        if let Some(account) = self.accounts.get_mut(&transaction.client) {
+            if let Some(amount) = transaction.amount {
+                if account.available >= amount {
+                    account.available -= amount;
+                    account.total -= amount;
+                    self.transactions.insert(transaction.tx, transaction);
+                    Ok(())
+                } else {
+                    Err(TransactionError::InsufficientFunds(account.client))
+                }
             } else {
-                Err(TransactionError::InsufficientFunds(account.client))
+                Err(TransactionError::InvalidAmount(transaction.tx))
             }
         } else {
-            Err(TransactionError::InvalidAmount(transaction.tx))
+            Err(TransactionError::AccountNotFound(transaction.client))
         }
     }
 
     fn process_dispute(&mut self, transaction: &Transaction) -> Result<(), TransactionError> {
-        let account = self.accounts.get_mut(&transaction.client).unwrap();
-
-        if let Some(original_tx) = self.transactions.get_mut(&transaction.tx) {
-            if !original_tx.disputed && original_tx.client == account.client {
-                if let Some(amount) = original_tx.amount {
-                    if let TransactionType::Deposit = original_tx.t_type {
-                        // Procéder au litige
-                        account.available -= amount;
-                        account.held += amount;
-                        original_tx.disputed = true;
-                        Ok(())
+        if let Some(account) = self.accounts.get_mut(&transaction.client) {
+            if let Some(original_tx) = self.transactions.get_mut(&transaction.tx) {
+                if !original_tx.disputed && original_tx.client == account.client {
+                    if let Some(amount) = original_tx.amount {
+                        if let TransactionType::Deposit = original_tx.t_type {
+                            account.available -= amount;
+                            account.held += amount;
+                            original_tx.disputed = true;
+                            Ok(())
+                        } else {
+                            Err(TransactionError::InvalidDispute(transaction.tx))
+                        }
                     } else {
-                        // La transaction n'est pas un dépôt, ignorer le litige ou générer une erreur
-                        Err(TransactionError::InvalidDispute(transaction.tx))
+                        Err(TransactionError::InvalidAmount(transaction.tx))
                     }
                 } else {
-                    Err(TransactionError::InvalidAmount(transaction.tx))
+                    Err(TransactionError::AlreadyDisputed(transaction.tx))
                 }
             } else {
-                Err(TransactionError::AlreadyDisputed(transaction.tx))
+                Err(TransactionError::NotFound(transaction.tx, account.client))
             }
         } else {
-            Err(TransactionError::NotFound(transaction.tx, account.client))
+            Err(TransactionError::AccountNotFound(transaction.client))
         }
     }
 
     fn process_resolve(&mut self, transaction: &Transaction) -> Result<(), TransactionError> {
-        let account = self.accounts.get_mut(&transaction.client).unwrap();
-
-        if let Some(original_tx) = self.transactions.get_mut(&transaction.tx) {
-            if original_tx.disputed && original_tx.client == account.client {
-                if let Some(amount) = original_tx.amount {
-                    account.available += amount;
-                    account.held -= amount;
-                    original_tx.disputed = false;
-                    Ok(())
-                } else {
-                    Err(TransactionError::InvalidAmount(transaction.tx))
-                }
-            } else {
-                Err(TransactionError::NotUnderDispute(transaction.tx))
-            }
-        } else {
-            Err(TransactionError::NotFound(transaction.tx, account.client))
-        }
-    }
-
-    fn process_chargeback(&mut self, transaction: &Transaction) -> Result<(), TransactionError> {
-        let client_id = transaction.client;
-        let account = self.accounts.get_mut(&client_id).unwrap();
-
-        if let Some(original_tx) = self.transactions.get_mut(&transaction.tx) {
-            if original_tx.disputed && original_tx.client == client_id {
-                if let TransactionType::Deposit = original_tx.t_type {
+        if let Some(account) = self.accounts.get_mut(&transaction.client) {
+            if let Some(original_tx) = self.transactions.get_mut(&transaction.tx) {
+                if original_tx.disputed && original_tx.client == account.client {
                     if let Some(amount) = original_tx.amount {
+                        account.available += amount;
                         account.held -= amount;
-                        account.total -= amount;
-
                         original_tx.disputed = false;
-
-                        account.locked = true;
-
                         Ok(())
                     } else {
                         Err(TransactionError::InvalidAmount(transaction.tx))
                     }
                 } else {
-                    Err(TransactionError::InvalidChargeback(transaction.tx))
+                    Err(TransactionError::NotUnderDispute(transaction.tx))
                 }
             } else {
-                Err(TransactionError::NotUnderDispute(transaction.tx))
+                Err(TransactionError::NotFound(transaction.tx, account.client))
             }
         } else {
-            Err(TransactionError::NotFound(transaction.tx, client_id))
+            Err(TransactionError::AccountNotFound(transaction.client))
+        }
+    }
+
+    fn process_chargeback(&mut self, transaction: &Transaction) -> Result<(), TransactionError> {
+        if let Some(account) = self.accounts.get_mut(&transaction.client) {
+            if let Some(original_tx) = self.transactions.get_mut(&transaction.tx) {
+                if original_tx.disputed && original_tx.client == transaction.client {
+                    if let TransactionType::Deposit = original_tx.t_type {
+                        if let Some(amount) = original_tx.amount {
+                            account.held -= amount;
+                            account.total -= amount;
+
+                            original_tx.disputed = false;
+                            account.locked = true;
+
+                            Ok(())
+                        } else {
+                            Err(TransactionError::InvalidAmount(transaction.tx))
+                        }
+                    } else {
+                        Err(TransactionError::InvalidChargeback(transaction.tx))
+                    }
+                } else {
+                    Err(TransactionError::NotUnderDispute(transaction.tx))
+                }
+            } else {
+                Err(TransactionError::NotFound(transaction.tx, transaction.client))
+            }
+        } else {
+            Err(TransactionError::AccountNotFound(transaction.client))
         }
     }
 }
@@ -163,13 +170,12 @@ mod tests {
             client: 1,
             tx: 1,
             amount: Some(1000.0),
-            // Assuming your Transaction struct includes a 'disputed' field
             disputed: false,
         };
 
-        engine.process_transaction(deposit_tx).unwrap();
+        engine.process_transaction(deposit_tx).expect("Failed to process deposit transaction");
 
-        let account = engine.accounts.get(&1).unwrap();
+        let account = engine.accounts.get(&1).expect("Account not found after deposit transaction");
         assert_eq!(account.available, 1000.0);
         assert_eq!(account.held, 0.0);
         assert_eq!(account.total, 1000.0);
@@ -189,7 +195,7 @@ mod tests {
             amount: Some(1000.0),
             disputed: false,
         };
-        engine.process_transaction(deposit_tx).unwrap();
+        engine.process_transaction(deposit_tx).expect("Failed to process deposit");
 
         // Then, withdraw some funds
         let withdrawal_tx = Transaction {
@@ -199,9 +205,9 @@ mod tests {
             amount: Some(500.0),
             disputed: false,
         };
-        engine.process_transaction(withdrawal_tx).unwrap();
+        engine.process_transaction(withdrawal_tx).expect("Failed to process withdrawal");
 
-        let account = engine.accounts.get(&1).unwrap();
+        let account = engine.accounts.get(&1).expect("Account not found after withdrawal");
         assert_eq!(account.available, 500.0);
         assert_eq!(account.held, 0.0);
         assert_eq!(account.total, 500.0);
@@ -221,7 +227,7 @@ mod tests {
             amount: Some(300.0),
             disputed: false,
         };
-        engine.process_transaction(deposit_tx).unwrap();
+        engine.process_transaction(deposit_tx).expect("Failed to process deposit");
 
         // Attempt to withdraw more than available
         let withdrawal_tx = Transaction {
@@ -241,7 +247,7 @@ mod tests {
         }
 
         // Account balances should remain unchanged
-        let account = engine.accounts.get(&1).unwrap();
+        let account = engine.accounts.get(&1).expect("Account not found after insufficient funds withdrawal");
         assert_eq!(account.available, 300.0);
         assert_eq!(account.held, 0.0);
         assert_eq!(account.total, 300.0);
@@ -261,7 +267,7 @@ mod tests {
             amount: Some(1000.0),
             disputed: false,
         };
-        engine.process_transaction(deposit_tx).unwrap();
+        engine.process_transaction(deposit_tx).expect("Failed to process deposit");
 
         // Initiate a dispute on the deposit
         let dispute_tx = Transaction {
@@ -271,10 +277,10 @@ mod tests {
             amount: None,
             disputed: false,
         };
-        engine.process_transaction(dispute_tx).unwrap();
+        engine.process_transaction(dispute_tx).expect("Failed to process dispute");
 
         // Check account balances
-        let account = engine.accounts.get(&1).unwrap();
+        let account = engine.accounts.get(&1).expect("Account not found after dispute");
         assert_eq!(account.available, 0.0);
         assert_eq!(account.held, 1000.0);
         assert_eq!(account.total, 1000.0);
@@ -294,7 +300,7 @@ mod tests {
             amount: Some(500.0),
             disputed: false,
         };
-        engine.process_transaction(deposit_tx).unwrap();
+        engine.process_transaction(deposit_tx).expect("Failed to process deposit");
 
         let dispute_tx = Transaction {
             t_type: TransactionType::Dispute,
@@ -303,7 +309,7 @@ mod tests {
             amount: None,
             disputed: false,
         };
-        engine.process_transaction(dispute_tx).unwrap();
+        engine.process_transaction(dispute_tx).expect("Failed to process dispute");
 
         // Resolve the dispute
         let resolve_tx = Transaction {
@@ -313,10 +319,10 @@ mod tests {
             amount: None,
             disputed: false,
         };
-        engine.process_transaction(resolve_tx).unwrap();
+        engine.process_transaction(resolve_tx).expect("Failed to process resolve");
 
         // Check account balances
-        let account = engine.accounts.get(&1).unwrap();
+        let account = engine.accounts.get(&1).expect("Account not found after resolve");
         assert_eq!(account.available, 500.0);
         assert_eq!(account.held, 0.0);
         assert_eq!(account.total, 500.0);
@@ -336,7 +342,7 @@ mod tests {
             amount: Some(400.0),
             disputed: false,
         };
-        engine.process_transaction(deposit_tx).unwrap();
+        engine.process_transaction(deposit_tx).expect("Failed to process deposit");
 
         let dispute_tx = Transaction {
             t_type: TransactionType::Dispute,
@@ -345,7 +351,7 @@ mod tests {
             amount: None,
             disputed: false,
         };
-        engine.process_transaction(dispute_tx).unwrap();
+        engine.process_transaction(dispute_tx).expect("Failed to process dispute");
 
         // Process chargeback
         let chargeback_tx = Transaction {
@@ -355,10 +361,10 @@ mod tests {
             amount: None,
             disputed: false,
         };
-        engine.process_transaction(chargeback_tx).unwrap();
+        engine.process_transaction(chargeback_tx).expect("Failed to process chargeback");
 
         // Check account balances and locked status
-        let account = engine.accounts.get(&1).unwrap();
+        let account = engine.accounts.get(&1).expect("Account not found after chargeback");
         assert_eq!(account.available, 0.0);
         assert_eq!(account.held, 0.0);
         assert_eq!(account.total, 0.0);
@@ -378,7 +384,7 @@ mod tests {
             amount: Some(400.0),
             disputed: false,
         };
-        engine.process_transaction(deposit_tx).unwrap();
+        engine.process_transaction(deposit_tx).expect("Failed to process deposit");
 
         let dispute_tx = Transaction {
             t_type: TransactionType::Dispute,
@@ -387,7 +393,7 @@ mod tests {
             amount: None,
             disputed: false,
         };
-        engine.process_transaction(dispute_tx).unwrap();
+        engine.process_transaction(dispute_tx).expect("Failed to process dispute");
 
         let chargeback_tx = Transaction {
             t_type: TransactionType::Chargeback,
@@ -396,7 +402,7 @@ mod tests {
             amount: None,
             disputed: false,
         };
-        engine.process_transaction(chargeback_tx).unwrap();
+        engine.process_transaction(chargeback_tx).expect("Failed to process chargeback");
 
         // Attempt to process a new deposit on the locked account
         let new_deposit_tx = Transaction {
@@ -452,7 +458,7 @@ mod tests {
             amount: Some(300.0),
             disputed: false,
         };
-        engine.process_transaction(deposit_tx).unwrap();
+        engine.process_transaction(deposit_tx).expect("Failed to process deposit");
 
         let dispute_tx = Transaction {
             t_type: TransactionType::Dispute,
@@ -461,7 +467,7 @@ mod tests {
             amount: None,
             disputed: false,
         };
-        engine.process_transaction(dispute_tx).unwrap();
+        engine.process_transaction(dispute_tx).expect("Failed to process dispute");
 
         // Attempt to dispute again
         let duplicate_dispute_tx = Transaction {
@@ -494,7 +500,7 @@ mod tests {
             amount: Some(200.0),
             disputed: false,
         };
-        engine.process_transaction(deposit_tx).unwrap();
+        engine.process_transaction(deposit_tx).expect("Failed to process deposit");
 
         // Attempt to resolve without a prior dispute
         let resolve_tx = Transaction {
@@ -527,7 +533,7 @@ mod tests {
             amount: Some(200.0),
             disputed: false,
         };
-        engine.process_transaction(deposit_tx).unwrap();
+        engine.process_transaction(deposit_tx).expect("Failed to process deposit");
 
         // Attempt to chargeback without a prior dispute
         let chargeback_tx = Transaction {
@@ -560,7 +566,7 @@ mod tests {
             amount: Some(500.0),
             disputed: false,
         };
-        engine.process_transaction(deposit_tx).unwrap();
+        engine.process_transaction(deposit_tx).expect("Failed to process deposit");
 
         // Withdraw funds
         let withdrawal_tx = Transaction {
@@ -570,7 +576,7 @@ mod tests {
             amount: Some(200.0),
             disputed: false,
         };
-        engine.process_transaction(withdrawal_tx).unwrap();
+        engine.process_transaction(withdrawal_tx).expect("Failed to process withdrawal");
 
         // Attempt to dispute the withdrawal
         let dispute_tx = Transaction {
@@ -603,7 +609,7 @@ mod tests {
             amount: Some(1000.0),
             disputed: false,
         };
-        engine.process_transaction(deposit_tx1).unwrap();
+        engine.process_transaction(deposit_tx1).expect("Failed to process deposit for client 1");
 
         // Client 2 deposits
         let deposit_tx2 = Transaction {
@@ -613,7 +619,7 @@ mod tests {
             amount: Some(2000.0),
             disputed: false,
         };
-        engine.process_transaction(deposit_tx2).unwrap();
+        engine.process_transaction(deposit_tx2).expect("Failed to process deposit for client 2");
 
         // Client 1 withdraws
         let withdrawal_tx1 = Transaction {
@@ -623,7 +629,7 @@ mod tests {
             amount: Some(500.0),
             disputed: false,
         };
-        engine.process_transaction(withdrawal_tx1).unwrap();
+        engine.process_transaction(withdrawal_tx1).expect("Failed to process withdrawal for client 1");
 
         // Client 2 disputes their deposit
         let dispute_tx2 = Transaction {
@@ -633,7 +639,7 @@ mod tests {
             amount: None,
             disputed: false,
         };
-        engine.process_transaction(dispute_tx2).unwrap();
+        engine.process_transaction(dispute_tx2).expect("Failed to process dispute for client 2");
 
         // Client 2 chargebacks the disputed transaction
         let chargeback_tx2 = Transaction {
@@ -643,17 +649,17 @@ mod tests {
             amount: None,
             disputed: false,
         };
-        engine.process_transaction(chargeback_tx2).unwrap();
+        engine.process_transaction(chargeback_tx2).expect("Failed to process chargeback for client 2");
 
         // Verify Client 1's account
-        let account1 = engine.accounts.get(&1).unwrap();
+        let account1 = engine.accounts.get(&1).expect("Account 1 not found");
         assert_eq!(account1.available, 500.0);
         assert_eq!(account1.held, 0.0);
         assert_eq!(account1.total, 500.0);
         assert!(!account1.locked);
 
         // Verify Client 2's account
-        let account2 = engine.accounts.get(&2).unwrap();
+        let account2 = engine.accounts.get(&2).expect("Account 2 not found");
         assert_eq!(account2.available, 0.0);
         assert_eq!(account2.held, 0.0);
         assert_eq!(account2.total, 0.0);
@@ -673,7 +679,7 @@ mod tests {
             amount: Some(1000.0),
             disputed: false,
         };
-        engine.process_transaction(deposit_tx).unwrap();
+        engine.process_transaction(deposit_tx).expect("Failed to process deposit");
 
         let dispute_tx = Transaction {
             t_type: TransactionType::Dispute,
@@ -682,7 +688,7 @@ mod tests {
             amount: None,
             disputed: false,
         };
-        engine.process_transaction(dispute_tx).unwrap();
+        engine.process_transaction(dispute_tx).expect("Failed to process dispute");
 
         let chargeback_tx = Transaction {
             t_type: TransactionType::Chargeback,
@@ -691,7 +697,7 @@ mod tests {
             amount: None,
             disputed: false,
         };
-        engine.process_transaction(chargeback_tx).unwrap();
+        engine.process_transaction(chargeback_tx).expect("Failed to process chargeback");
 
         // Attempt to process another deposit
         let new_deposit_tx = Transaction {
@@ -724,7 +730,7 @@ mod tests {
             amount: Some(500.0),
             disputed: false,
         };
-        engine.process_transaction(deposit_tx).unwrap();
+        engine.process_transaction(deposit_tx).expect("Failed to process deposit");
 
         // Dispute the deposit
         let dispute_tx = Transaction {
@@ -734,7 +740,7 @@ mod tests {
             amount: None,
             disputed: false,
         };
-        engine.process_transaction(dispute_tx).unwrap();
+        engine.process_transaction(dispute_tx).expect("Failed to process dispute");
 
         // Attempt to withdraw funds (should fail due to insufficient available funds)
         let withdrawal_tx = Transaction {
@@ -753,4 +759,133 @@ mod tests {
             panic!("Expected InsufficientFunds error");
         }
     }
+
+    #[test]
+    fn test_invalid_amount_in_deposit() {
+        let mut engine = Engine::new();
+
+        // Attempt to deposit with an invalid (None) amount
+        let deposit_tx = Transaction {
+            t_type: TransactionType::Deposit,
+            client: 1,
+            tx: 1,
+            amount: None,  // Invalid amount
+            disputed: false,
+        };
+        let result = engine.process_transaction(deposit_tx);
+
+        assert!(result.is_err());
+        if let Err(TransactionError::InvalidAmount(tx_id)) = result {
+            assert_eq!(tx_id, 1);
+        } else {
+            panic!("Expected InvalidAmount error for deposit transaction");
+        }
+    }
+
+    #[test]
+    fn test_invalid_amount_in_withdrawal() {
+        let mut engine = Engine::new();
+
+        // Attempt to withdraw with an invalid (None) amount
+        let withdrawal_tx = Transaction {
+            t_type: TransactionType::Withdrawal,
+            client: 1,
+            tx: 2,
+            amount: None,  // Invalid amount
+            disputed: false,
+        };
+        let result = engine.process_transaction(withdrawal_tx);
+
+        assert!(result.is_err());
+        if let Err(TransactionError::InvalidAmount(tx_id)) = result {
+            assert_eq!(tx_id, 2);
+        } else {
+            panic!("Expected InvalidAmount error for withdrawal transaction");
+        }
+    }
+
+    #[test]
+    fn test_invalid_dispute_on_non_deposit_transaction() {
+        let mut engine = Engine::new();
+
+        // Register a deposit
+        let deposit_tx = Transaction {
+            t_type: TransactionType::Deposit,
+            client: 1,
+            tx: 1,
+            amount: Some(600.0),
+            disputed: false,
+        };
+        engine.process_transaction(deposit_tx).expect("Failed to process deposit transaction");
+
+        // Register a withdrawal transaction
+        let withdrawal_tx = Transaction {
+            t_type: TransactionType::Withdrawal,
+            client: 1,
+            tx: 2,
+            amount: Some(500.0),
+            disputed: false,
+        };
+        engine.process_transaction(withdrawal_tx).expect("Failed to process withdrawal");
+
+        // Attempt to dispute the withdrawal (invalid operation)
+        let dispute_tx = Transaction {
+            t_type: TransactionType::Dispute,
+            client: 1,
+            tx: 2,
+            amount: None,
+            disputed: false,
+        };
+        let result = engine.process_transaction(dispute_tx);
+
+        assert!(result.is_err());
+        if let Err(TransactionError::InvalidDispute(tx_id)) = result {
+            assert_eq!(tx_id, 2);
+        } else {
+            panic!("Expected InvalidDispute error for disputing a withdrawal transaction");
+        }
+    }
+
+    #[test]
+    fn test_invalid_chargeback_on_non_deposit_transaction() {
+        let mut engine = Engine::new();
+
+        // Register a deposit
+        let deposit_tx = Transaction {
+            t_type: TransactionType::Deposit,
+            client: 1,
+            tx: 1,
+            amount: Some(600.0),
+            disputed: false,
+        };
+        engine.process_transaction(deposit_tx).expect("Failed to process deposit transaction");
+
+        // Register a withdrawal transaction
+        let withdrawal_tx = Transaction {
+            t_type: TransactionType::Withdrawal,
+            client: 1,
+            tx: 2,
+            amount: Some(500.0),
+            disputed: true, // intentionally set to cover edge case error handling :-)
+        };
+        engine.process_transaction(withdrawal_tx).expect("Failed to process withdrawal");
+
+        // Attempt to chargeback the withdrawal (invalid operation)
+        let chargeback_tx = Transaction {
+            t_type: TransactionType::Chargeback,
+            client: 1,
+            tx: 2,
+            amount: None,
+            disputed: false,
+        };
+
+        let result = engine.process_transaction(chargeback_tx);
+        assert!(result.is_err());
+        if let Err(TransactionError::InvalidChargeback(tx_id)) = result {
+            assert_eq!(tx_id, 2);
+        } else {
+            panic!("Expected InvalidChargeback error for charging back a withdrawal transaction");
+        }
+    }
+
 }
