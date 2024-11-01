@@ -87,6 +87,7 @@ client,available,held,total,locked
 
 ## Assumptions
 
+- Dispute on Deposits Only: We assumed that only deposit transactions can be disputed. This choice was made to align with typical transaction processing practices where only credits to an account (deposits) are disputable, as withdrawals or other types would not usually be eligible for reversal.
 - Each client has a single asset account.
 - Transactions occur chronologically in the input file.
 - Transaction amounts have a precision of up to four decimal places.
@@ -154,14 +155,6 @@ The tests cover various scenarios, including:
 - Implement concurrency to process multiple input files or streams simultaneously.
 - Enhance logging with different verbosity levels.
 - Add support for additional transaction types or multi-asset accounts.
-
-## Contact
-
-For any questions or suggestions, please contact:
-
-[Your Name]  
-[Your Email]  
-[Your GitHub Profile]
 
 ---
 
