@@ -27,13 +27,41 @@ This implementation strictly adheres to the specifications provided, focusing on
 - **Rust** programming language (version 1.54 or higher recommended)
 - **Cargo** package manager
 
+### Code Quality Tools
+
+To ensure code quality and maintain a consistent code style, this project uses `rustfmt` and `clippy` with pedantic settings.
+
+#### Formatting with `rustfmt`
+
+`rustfmt` is used to automatically format your Rust code according to the official Rust style guidelines.
+
+To format the code, run the following command in your terminal:
+
+```sh
+cargo fmt
+```
+
+This will format all the Rust files in your project.
+
+Linting with clippy
+clippy provides additional lints to catch common mistakes and improve your Rust code. We use clippy with the pedantic setting to enforce stricter checks.
+
+To run clippy in pedantic mode and check for linting issues, use the following command:
+
+```sh
+cargo clippy -- -W clippy::pedantic
+```
+
+This will analyze your code and print warnings and suggestions.
+
+
 ### Building the Project
 
 Clone the repository and build the project using Cargo:
 
 ```bash
-git clone https://github.com/yourusername/transaction-processor.git
-cd transaction-processor
+git clone https://github.com/ybensacq/tx-engine.git
+cd tx-engine
 cargo build --release
 ```
 
@@ -89,6 +117,7 @@ client,available,held,total,locked
 
 - Dispute on Deposits Only: We assumed that only deposit transactions can be disputed. This choice was made to align with typical transaction processing practices where only credits to an account (deposits) are disputable, as withdrawals or other types would not usually be eligible for reversal.
 - Each client has a single asset account.
+- Once a client account is frozen (e.g., after a chargeback), any subsequent dispute or resolve events for that account are ignored and not processed.
 - Transactions occur chronologically in the input file.
 - Transaction amounts have a precision of up to four decimal places.
 - Transactions reference existing clients or create new ones if they don't exist.
@@ -152,10 +181,11 @@ The tests cover various scenarios, including:
 
 ## Future Improvements
 
+- Replace primitive decimals by BigDecimal to properly handle large values.
 - Implement concurrency to process multiple input files or streams simultaneously.
+- Logging to File: Instead of printing error messages to standard error, implement structured logging to a file. This will allow for better error tracking, facilitate debugging, and keep the program's output clean when run in production environments.
 - Enhance logging with different verbosity levels.
 - Add support for additional transaction types or multi-asset accounts.
-
 ---
 
 *This project is developed for educational purposes and is not intended for production use.*

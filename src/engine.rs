@@ -41,120 +41,119 @@ impl Engine {
     }
 
     fn process_deposit(&mut self, transaction: Transaction) -> Result<(), TransactionError> {
-        if let Some(account) = self.accounts.get_mut(&transaction.client) {
-            if let Some(amount) = transaction.amount {
-                account.available += amount;
-                account.total += amount;
-                self.transactions.insert(transaction.tx, transaction);
-                Ok(())
-            } else {
-                Err(TransactionError::InvalidAmount(transaction.tx))
-            }
-        } else {
-            eprintln!("Account not found for client ID: {}", transaction.client);
-            Ok(())
-        }
+        let account = self
+            .accounts
+            .get_mut(&transaction.client)
+            .ok_or(TransactionError::AccountNotFound(transaction.client))?;
+        let amount = transaction
+            .amount
+            .ok_or(TransactionError::InvalidAmount(transaction.tx))?;
+
+        account.available += amount;
+        account.total += amount;
+        self.transactions.insert(transaction.tx, transaction);
+        Ok(())
     }
 
     fn process_withdrawal(&mut self, transaction: Transaction) -> Result<(), TransactionError> {
-        if let Some(account) = self.accounts.get_mut(&transaction.client) {
-            if let Some(amount) = transaction.amount {
-                if account.available >= amount {
-                    account.available -= amount;
-                    account.total -= amount;
-                    self.transactions.insert(transaction.tx, transaction);
-                    Ok(())
-                } else {
-                    Err(TransactionError::InsufficientFunds(account.client))
-                }
-            } else {
-                Err(TransactionError::InvalidAmount(transaction.tx))
-            }
+        let account = self
+            .accounts
+            .get_mut(&transaction.client)
+            .ok_or(TransactionError::AccountNotFound(transaction.client))?;
+        let amount = transaction
+            .amount
+            .ok_or(TransactionError::InvalidAmount(transaction.tx))?;
+
+        if account.available >= amount {
+            account.available -= amount;
+            account.total -= amount;
+            self.transactions.insert(transaction.tx, transaction);
+            Ok(())
         } else {
-            Err(TransactionError::AccountNotFound(transaction.client))
+            Err(TransactionError::InsufficientFunds(account.client))
         }
     }
 
     fn process_dispute(&mut self, transaction: &Transaction) -> Result<(), TransactionError> {
-        if let Some(account) = self.accounts.get_mut(&transaction.client) {
-            if let Some(original_tx) = self.transactions.get_mut(&transaction.tx) {
-                if !original_tx.disputed && original_tx.client == account.client {
-                    if let Some(amount) = original_tx.amount {
-                        if let TransactionType::Deposit = original_tx.t_type {
-                            account.available -= amount;
-                            account.held += amount;
-                            original_tx.disputed = true;
-                            Ok(())
-                        } else {
-                            Err(TransactionError::InvalidDispute(transaction.tx))
-                        }
-                    } else {
-                        Err(TransactionError::InvalidAmount(transaction.tx))
-                    }
-                } else {
-                    Err(TransactionError::AlreadyDisputed(transaction.tx))
-                }
+        let account = self
+            .accounts
+            .get_mut(&transaction.client)
+            .ok_or(TransactionError::AccountNotFound(transaction.client))?;
+        let original_tx = self
+            .transactions
+            .get_mut(&transaction.tx)
+            .ok_or(TransactionError::NotFound(transaction.tx, account.client))?;
+
+        if !original_tx.disputed && original_tx.client == account.client {
+            let amount = original_tx
+                .amount
+                .ok_or(TransactionError::InvalidAmount(transaction.tx))?;
+            if let TransactionType::Deposit = original_tx.t_type {
+                account.available -= amount;
+                account.held += amount;
+                original_tx.disputed = true;
+                Ok(())
             } else {
-                Err(TransactionError::NotFound(transaction.tx, account.client))
+                Err(TransactionError::InvalidDispute(transaction.tx))
             }
         } else {
-            Err(TransactionError::AccountNotFound(transaction.client))
+            Err(TransactionError::AlreadyDisputed(transaction.tx))
         }
     }
 
     fn process_resolve(&mut self, transaction: &Transaction) -> Result<(), TransactionError> {
-        if let Some(account) = self.accounts.get_mut(&transaction.client) {
-            if let Some(original_tx) = self.transactions.get_mut(&transaction.tx) {
-                if original_tx.disputed && original_tx.client == account.client {
-                    if let Some(amount) = original_tx.amount {
-                        account.available += amount;
-                        account.held -= amount;
-                        original_tx.disputed = false;
-                        Ok(())
-                    } else {
-                        Err(TransactionError::InvalidAmount(transaction.tx))
-                    }
-                } else {
-                    Err(TransactionError::NotUnderDispute(transaction.tx))
-                }
-            } else {
-                Err(TransactionError::NotFound(transaction.tx, account.client))
-            }
+        let account = self
+            .accounts
+            .get_mut(&transaction.client)
+            .ok_or(TransactionError::AccountNotFound(transaction.client))?;
+        let original_tx = self
+            .transactions
+            .get_mut(&transaction.tx)
+            .ok_or(TransactionError::NotFound(transaction.tx, account.client))?;
+
+        if original_tx.disputed && original_tx.client == account.client {
+            let amount = original_tx
+                .amount
+                .ok_or(TransactionError::InvalidAmount(transaction.tx))?;
+            account.available += amount;
+            account.held -= amount;
+            original_tx.disputed = false;
+            Ok(())
         } else {
-            Err(TransactionError::AccountNotFound(transaction.client))
+            Err(TransactionError::NotUnderDispute(transaction.tx))
         }
     }
 
     fn process_chargeback(&mut self, transaction: &Transaction) -> Result<(), TransactionError> {
-        if let Some(account) = self.accounts.get_mut(&transaction.client) {
-            if let Some(original_tx) = self.transactions.get_mut(&transaction.tx) {
-                if original_tx.disputed && original_tx.client == transaction.client {
-                    if let TransactionType::Deposit = original_tx.t_type {
-                        if let Some(amount) = original_tx.amount {
-                            account.held -= amount;
-                            account.total -= amount;
-
-                            original_tx.disputed = false;
-                            account.locked = true;
-
-                            Ok(())
-                        } else {
-                            Err(TransactionError::InvalidAmount(transaction.tx))
-                        }
-                    } else {
-                        Err(TransactionError::InvalidChargeback(transaction.tx))
-                    }
-                } else {
-                    Err(TransactionError::NotUnderDispute(transaction.tx))
-                }
-            } else {
-                Err(TransactionError::NotFound(
+        let account = self
+            .accounts
+            .get_mut(&transaction.client)
+            .ok_or(TransactionError::AccountNotFound(transaction.client))?;
+        let original_tx =
+            self.transactions
+                .get_mut(&transaction.tx)
+                .ok_or(TransactionError::NotFound(
                     transaction.tx,
                     transaction.client,
-                ))
+                ))?;
+
+        if original_tx.disputed && original_tx.client == transaction.client {
+            if let TransactionType::Deposit = original_tx.t_type {
+                let amount = original_tx
+                    .amount
+                    .ok_or(TransactionError::InvalidAmount(transaction.tx))?;
+                account.held -= amount;
+                account.total -= amount;
+
+                original_tx.disputed = false;
+                account.locked = true;
+
+                Ok(())
+            } else {
+                Err(TransactionError::InvalidChargeback(transaction.tx))
             }
         } else {
-            Err(TransactionError::AccountNotFound(transaction.client))
+            Err(TransactionError::NotUnderDispute(transaction.tx))
         }
     }
 }
