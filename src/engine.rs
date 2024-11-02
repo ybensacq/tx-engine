@@ -148,7 +148,10 @@ impl Engine {
                     Err(TransactionError::NotUnderDispute(transaction.tx))
                 }
             } else {
-                Err(TransactionError::NotFound(transaction.tx, transaction.client))
+                Err(TransactionError::NotFound(
+                    transaction.tx,
+                    transaction.client,
+                ))
             }
         } else {
             Err(TransactionError::AccountNotFound(transaction.client))
@@ -173,9 +176,14 @@ mod tests {
             disputed: false,
         };
 
-        engine.process_transaction(deposit_tx).expect("Failed to process deposit transaction");
+        engine
+            .process_transaction(deposit_tx)
+            .expect("Failed to process deposit transaction");
 
-        let account = engine.accounts.get(&1).expect("Account not found after deposit transaction");
+        let account = engine
+            .accounts
+            .get(&1)
+            .expect("Account not found after deposit transaction");
         assert_eq!(account.available, 1000.0);
         assert_eq!(account.held, 0.0);
         assert_eq!(account.total, 1000.0);
@@ -195,7 +203,9 @@ mod tests {
             amount: Some(1000.0),
             disputed: false,
         };
-        engine.process_transaction(deposit_tx).expect("Failed to process deposit");
+        engine
+            .process_transaction(deposit_tx)
+            .expect("Failed to process deposit");
 
         // Then, withdraw some funds
         let withdrawal_tx = Transaction {
@@ -205,9 +215,14 @@ mod tests {
             amount: Some(500.0),
             disputed: false,
         };
-        engine.process_transaction(withdrawal_tx).expect("Failed to process withdrawal");
+        engine
+            .process_transaction(withdrawal_tx)
+            .expect("Failed to process withdrawal");
 
-        let account = engine.accounts.get(&1).expect("Account not found after withdrawal");
+        let account = engine
+            .accounts
+            .get(&1)
+            .expect("Account not found after withdrawal");
         assert_eq!(account.available, 500.0);
         assert_eq!(account.held, 0.0);
         assert_eq!(account.total, 500.0);
@@ -227,7 +242,9 @@ mod tests {
             amount: Some(300.0),
             disputed: false,
         };
-        engine.process_transaction(deposit_tx).expect("Failed to process deposit");
+        engine
+            .process_transaction(deposit_tx)
+            .expect("Failed to process deposit");
 
         // Attempt to withdraw more than available
         let withdrawal_tx = Transaction {
@@ -247,7 +264,10 @@ mod tests {
         }
 
         // Account balances should remain unchanged
-        let account = engine.accounts.get(&1).expect("Account not found after insufficient funds withdrawal");
+        let account = engine
+            .accounts
+            .get(&1)
+            .expect("Account not found after insufficient funds withdrawal");
         assert_eq!(account.available, 300.0);
         assert_eq!(account.held, 0.0);
         assert_eq!(account.total, 300.0);
@@ -267,7 +287,9 @@ mod tests {
             amount: Some(1000.0),
             disputed: false,
         };
-        engine.process_transaction(deposit_tx).expect("Failed to process deposit");
+        engine
+            .process_transaction(deposit_tx)
+            .expect("Failed to process deposit");
 
         // Initiate a dispute on the deposit
         let dispute_tx = Transaction {
@@ -277,10 +299,15 @@ mod tests {
             amount: None,
             disputed: false,
         };
-        engine.process_transaction(dispute_tx).expect("Failed to process dispute");
+        engine
+            .process_transaction(dispute_tx)
+            .expect("Failed to process dispute");
 
         // Check account balances
-        let account = engine.accounts.get(&1).expect("Account not found after dispute");
+        let account = engine
+            .accounts
+            .get(&1)
+            .expect("Account not found after dispute");
         assert_eq!(account.available, 0.0);
         assert_eq!(account.held, 1000.0);
         assert_eq!(account.total, 1000.0);
@@ -300,7 +327,9 @@ mod tests {
             amount: Some(500.0),
             disputed: false,
         };
-        engine.process_transaction(deposit_tx).expect("Failed to process deposit");
+        engine
+            .process_transaction(deposit_tx)
+            .expect("Failed to process deposit");
 
         let dispute_tx = Transaction {
             t_type: TransactionType::Dispute,
@@ -309,7 +338,9 @@ mod tests {
             amount: None,
             disputed: false,
         };
-        engine.process_transaction(dispute_tx).expect("Failed to process dispute");
+        engine
+            .process_transaction(dispute_tx)
+            .expect("Failed to process dispute");
 
         // Resolve the dispute
         let resolve_tx = Transaction {
@@ -319,10 +350,15 @@ mod tests {
             amount: None,
             disputed: false,
         };
-        engine.process_transaction(resolve_tx).expect("Failed to process resolve");
+        engine
+            .process_transaction(resolve_tx)
+            .expect("Failed to process resolve");
 
         // Check account balances
-        let account = engine.accounts.get(&1).expect("Account not found after resolve");
+        let account = engine
+            .accounts
+            .get(&1)
+            .expect("Account not found after resolve");
         assert_eq!(account.available, 500.0);
         assert_eq!(account.held, 0.0);
         assert_eq!(account.total, 500.0);
@@ -342,7 +378,9 @@ mod tests {
             amount: Some(400.0),
             disputed: false,
         };
-        engine.process_transaction(deposit_tx).expect("Failed to process deposit");
+        engine
+            .process_transaction(deposit_tx)
+            .expect("Failed to process deposit");
 
         let dispute_tx = Transaction {
             t_type: TransactionType::Dispute,
@@ -351,7 +389,9 @@ mod tests {
             amount: None,
             disputed: false,
         };
-        engine.process_transaction(dispute_tx).expect("Failed to process dispute");
+        engine
+            .process_transaction(dispute_tx)
+            .expect("Failed to process dispute");
 
         // Process chargeback
         let chargeback_tx = Transaction {
@@ -361,10 +401,15 @@ mod tests {
             amount: None,
             disputed: false,
         };
-        engine.process_transaction(chargeback_tx).expect("Failed to process chargeback");
+        engine
+            .process_transaction(chargeback_tx)
+            .expect("Failed to process chargeback");
 
         // Check account balances and locked status
-        let account = engine.accounts.get(&1).expect("Account not found after chargeback");
+        let account = engine
+            .accounts
+            .get(&1)
+            .expect("Account not found after chargeback");
         assert_eq!(account.available, 0.0);
         assert_eq!(account.held, 0.0);
         assert_eq!(account.total, 0.0);
@@ -384,7 +429,9 @@ mod tests {
             amount: Some(400.0),
             disputed: false,
         };
-        engine.process_transaction(deposit_tx).expect("Failed to process deposit");
+        engine
+            .process_transaction(deposit_tx)
+            .expect("Failed to process deposit");
 
         let dispute_tx = Transaction {
             t_type: TransactionType::Dispute,
@@ -393,7 +440,9 @@ mod tests {
             amount: None,
             disputed: false,
         };
-        engine.process_transaction(dispute_tx).expect("Failed to process dispute");
+        engine
+            .process_transaction(dispute_tx)
+            .expect("Failed to process dispute");
 
         let chargeback_tx = Transaction {
             t_type: TransactionType::Chargeback,
@@ -402,7 +451,9 @@ mod tests {
             amount: None,
             disputed: false,
         };
-        engine.process_transaction(chargeback_tx).expect("Failed to process chargeback");
+        engine
+            .process_transaction(chargeback_tx)
+            .expect("Failed to process chargeback");
 
         // Attempt to process a new deposit on the locked account
         let new_deposit_tx = Transaction {
@@ -458,7 +509,9 @@ mod tests {
             amount: Some(300.0),
             disputed: false,
         };
-        engine.process_transaction(deposit_tx).expect("Failed to process deposit");
+        engine
+            .process_transaction(deposit_tx)
+            .expect("Failed to process deposit");
 
         let dispute_tx = Transaction {
             t_type: TransactionType::Dispute,
@@ -467,7 +520,9 @@ mod tests {
             amount: None,
             disputed: false,
         };
-        engine.process_transaction(dispute_tx).expect("Failed to process dispute");
+        engine
+            .process_transaction(dispute_tx)
+            .expect("Failed to process dispute");
 
         // Attempt to dispute again
         let duplicate_dispute_tx = Transaction {
@@ -500,7 +555,9 @@ mod tests {
             amount: Some(200.0),
             disputed: false,
         };
-        engine.process_transaction(deposit_tx).expect("Failed to process deposit");
+        engine
+            .process_transaction(deposit_tx)
+            .expect("Failed to process deposit");
 
         // Attempt to resolve without a prior dispute
         let resolve_tx = Transaction {
@@ -533,7 +590,9 @@ mod tests {
             amount: Some(200.0),
             disputed: false,
         };
-        engine.process_transaction(deposit_tx).expect("Failed to process deposit");
+        engine
+            .process_transaction(deposit_tx)
+            .expect("Failed to process deposit");
 
         // Attempt to chargeback without a prior dispute
         let chargeback_tx = Transaction {
@@ -566,7 +625,9 @@ mod tests {
             amount: Some(500.0),
             disputed: false,
         };
-        engine.process_transaction(deposit_tx).expect("Failed to process deposit");
+        engine
+            .process_transaction(deposit_tx)
+            .expect("Failed to process deposit");
 
         // Withdraw funds
         let withdrawal_tx = Transaction {
@@ -576,7 +637,9 @@ mod tests {
             amount: Some(200.0),
             disputed: false,
         };
-        engine.process_transaction(withdrawal_tx).expect("Failed to process withdrawal");
+        engine
+            .process_transaction(withdrawal_tx)
+            .expect("Failed to process withdrawal");
 
         // Attempt to dispute the withdrawal
         let dispute_tx = Transaction {
@@ -609,7 +672,9 @@ mod tests {
             amount: Some(1000.0),
             disputed: false,
         };
-        engine.process_transaction(deposit_tx1).expect("Failed to process deposit for client 1");
+        engine
+            .process_transaction(deposit_tx1)
+            .expect("Failed to process deposit for client 1");
 
         // Client 2 deposits
         let deposit_tx2 = Transaction {
@@ -619,7 +684,9 @@ mod tests {
             amount: Some(2000.0),
             disputed: false,
         };
-        engine.process_transaction(deposit_tx2).expect("Failed to process deposit for client 2");
+        engine
+            .process_transaction(deposit_tx2)
+            .expect("Failed to process deposit for client 2");
 
         // Client 1 withdraws
         let withdrawal_tx1 = Transaction {
@@ -629,7 +696,9 @@ mod tests {
             amount: Some(500.0),
             disputed: false,
         };
-        engine.process_transaction(withdrawal_tx1).expect("Failed to process withdrawal for client 1");
+        engine
+            .process_transaction(withdrawal_tx1)
+            .expect("Failed to process withdrawal for client 1");
 
         // Client 2 disputes their deposit
         let dispute_tx2 = Transaction {
@@ -639,7 +708,9 @@ mod tests {
             amount: None,
             disputed: false,
         };
-        engine.process_transaction(dispute_tx2).expect("Failed to process dispute for client 2");
+        engine
+            .process_transaction(dispute_tx2)
+            .expect("Failed to process dispute for client 2");
 
         // Client 2 chargebacks the disputed transaction
         let chargeback_tx2 = Transaction {
@@ -649,7 +720,9 @@ mod tests {
             amount: None,
             disputed: false,
         };
-        engine.process_transaction(chargeback_tx2).expect("Failed to process chargeback for client 2");
+        engine
+            .process_transaction(chargeback_tx2)
+            .expect("Failed to process chargeback for client 2");
 
         // Verify Client 1's account
         let account1 = engine.accounts.get(&1).expect("Account 1 not found");
@@ -679,7 +752,9 @@ mod tests {
             amount: Some(1000.0),
             disputed: false,
         };
-        engine.process_transaction(deposit_tx).expect("Failed to process deposit");
+        engine
+            .process_transaction(deposit_tx)
+            .expect("Failed to process deposit");
 
         let dispute_tx = Transaction {
             t_type: TransactionType::Dispute,
@@ -688,7 +763,9 @@ mod tests {
             amount: None,
             disputed: false,
         };
-        engine.process_transaction(dispute_tx).expect("Failed to process dispute");
+        engine
+            .process_transaction(dispute_tx)
+            .expect("Failed to process dispute");
 
         let chargeback_tx = Transaction {
             t_type: TransactionType::Chargeback,
@@ -697,7 +774,9 @@ mod tests {
             amount: None,
             disputed: false,
         };
-        engine.process_transaction(chargeback_tx).expect("Failed to process chargeback");
+        engine
+            .process_transaction(chargeback_tx)
+            .expect("Failed to process chargeback");
 
         // Attempt to process another deposit
         let new_deposit_tx = Transaction {
@@ -730,7 +809,9 @@ mod tests {
             amount: Some(500.0),
             disputed: false,
         };
-        engine.process_transaction(deposit_tx).expect("Failed to process deposit");
+        engine
+            .process_transaction(deposit_tx)
+            .expect("Failed to process deposit");
 
         // Dispute the deposit
         let dispute_tx = Transaction {
@@ -740,7 +821,9 @@ mod tests {
             amount: None,
             disputed: false,
         };
-        engine.process_transaction(dispute_tx).expect("Failed to process dispute");
+        engine
+            .process_transaction(dispute_tx)
+            .expect("Failed to process dispute");
 
         // Attempt to withdraw funds (should fail due to insufficient available funds)
         let withdrawal_tx = Transaction {
@@ -769,7 +852,7 @@ mod tests {
             t_type: TransactionType::Deposit,
             client: 1,
             tx: 1,
-            amount: None,  // Invalid amount
+            amount: None, // Invalid amount
             disputed: false,
         };
         let result = engine.process_transaction(deposit_tx);
@@ -791,7 +874,7 @@ mod tests {
             t_type: TransactionType::Withdrawal,
             client: 1,
             tx: 2,
-            amount: None,  // Invalid amount
+            amount: None, // Invalid amount
             disputed: false,
         };
         let result = engine.process_transaction(withdrawal_tx);
@@ -816,7 +899,9 @@ mod tests {
             amount: Some(600.0),
             disputed: false,
         };
-        engine.process_transaction(deposit_tx).expect("Failed to process deposit transaction");
+        engine
+            .process_transaction(deposit_tx)
+            .expect("Failed to process deposit transaction");
 
         // Register a withdrawal transaction
         let withdrawal_tx = Transaction {
@@ -826,7 +911,9 @@ mod tests {
             amount: Some(500.0),
             disputed: false,
         };
-        engine.process_transaction(withdrawal_tx).expect("Failed to process withdrawal");
+        engine
+            .process_transaction(withdrawal_tx)
+            .expect("Failed to process withdrawal");
 
         // Attempt to dispute the withdrawal (invalid operation)
         let dispute_tx = Transaction {
@@ -858,7 +945,9 @@ mod tests {
             amount: Some(600.0),
             disputed: false,
         };
-        engine.process_transaction(deposit_tx).expect("Failed to process deposit transaction");
+        engine
+            .process_transaction(deposit_tx)
+            .expect("Failed to process deposit transaction");
 
         // Register a withdrawal transaction
         let withdrawal_tx = Transaction {
@@ -868,7 +957,9 @@ mod tests {
             amount: Some(500.0),
             disputed: true, // intentionally set to cover edge case error handling :-)
         };
-        engine.process_transaction(withdrawal_tx).expect("Failed to process withdrawal");
+        engine
+            .process_transaction(withdrawal_tx)
+            .expect("Failed to process withdrawal");
 
         // Attempt to chargeback the withdrawal (invalid operation)
         let chargeback_tx = Transaction {
@@ -887,5 +978,4 @@ mod tests {
             panic!("Expected InvalidChargeback error for charging back a withdrawal transaction");
         }
     }
-
 }
