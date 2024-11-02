@@ -9,7 +9,6 @@ mod account;
 mod engine;
 mod error;
 mod transaction;
-// Module to handle errors
 
 fn main() -> Result<(), Box<dyn Error>> {
     let start_time = Local::now();
