@@ -45,7 +45,8 @@ fn main() -> Result<(), Box<dyn Error>> {
             Err(e) => {
                 eprintln!(
                     "Failed to parse transaction record at line {}: {}.",
-                    e.position().map_or("unknown".to_string(), |pos| pos.line().to_string()),
+                    e.position()
+                        .map_or("unknown".to_string(), |pos| pos.line().to_string()),
                     e
                 );
             }
