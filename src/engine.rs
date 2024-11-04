@@ -17,6 +17,12 @@ impl Engine {
         }
     }
 
+    pub fn get_account(&mut self, client_id: u16) -> Result<&mut Account, TransactionError> {
+        self.accounts
+            .get_mut(&client_id)
+            .ok_or(TransactionError::AccountNotFound(client_id))
+    }
+
     pub fn process_transaction(
         &mut self,
         transaction: Transaction,
@@ -41,10 +47,7 @@ impl Engine {
     }
 
     fn process_deposit(&mut self, transaction: Transaction) -> Result<(), TransactionError> {
-        let account = self
-            .accounts
-            .get_mut(&transaction.client)
-            .ok_or(TransactionError::AccountNotFound(transaction.client))?;
+        let account = self.get_account(transaction.client)?;
         let amount = transaction
             .amount
             .ok_or(TransactionError::InvalidAmount(transaction.tx))?;
@@ -56,10 +59,7 @@ impl Engine {
     }
 
     fn process_withdrawal(&mut self, transaction: Transaction) -> Result<(), TransactionError> {
-        let account = self
-            .accounts
-            .get_mut(&transaction.client)
-            .ok_or(TransactionError::AccountNotFound(transaction.client))?;
+        let account = self.get_account(transaction.client)?;
         let amount = transaction
             .amount
             .ok_or(TransactionError::InvalidAmount(transaction.tx))?;
@@ -75,10 +75,7 @@ impl Engine {
     }
 
     fn process_dispute(&mut self, transaction: &Transaction) -> Result<(), TransactionError> {
-        let account = self
-            .accounts
-            .get_mut(&transaction.client)
-            .ok_or(TransactionError::AccountNotFound(transaction.client))?;
+        let account = self.get_account(transaction.client)?;
         let original_tx = self
             .transactions
             .get_mut(&transaction.tx)
@@ -102,10 +99,7 @@ impl Engine {
     }
 
     fn process_resolve(&mut self, transaction: &Transaction) -> Result<(), TransactionError> {
-        let account = self
-            .accounts
-            .get_mut(&transaction.client)
-            .ok_or(TransactionError::AccountNotFound(transaction.client))?;
+        let account = self.get_account(transaction.client)?;
         let original_tx = self
             .transactions
             .get_mut(&transaction.tx)
@@ -125,10 +119,7 @@ impl Engine {
     }
 
     fn process_chargeback(&mut self, transaction: &Transaction) -> Result<(), TransactionError> {
-        let account = self
-            .accounts
-            .get_mut(&transaction.client)
-            .ok_or(TransactionError::AccountNotFound(transaction.client))?;
+        let account = self.get_account(transaction.client)?;
         let original_tx =
             self.transactions
                 .get_mut(&transaction.tx)
