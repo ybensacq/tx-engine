@@ -49,7 +49,7 @@ clippy provides additional lints to catch common mistakes and improve your Rust 
 To run clippy in pedantic mode and check for linting issues, use the following command:
 
 ```sh
-cargo clippy -- -W clippy::pedantic
+cargo clippy
 ```
 
 This will analyze your code and print warnings and suggestions.
@@ -182,6 +182,11 @@ The tests cover various scenarios, including:
 ## Future Improvements
 
 - Replace primitive decimals by BigDecimal to properly handle large values.
+- Enhanced Error Handling for Invalid Accounts: Currently, if a transaction for a specific account is invalid (e.g., due to missing or incorrect data), only that transaction is skipped, and subsequent transactions for the same account are processed as usual. An enhancement could be to flag the account as erroneous after the first invalid transaction and ignore all subsequent transactions related to this account. This approach would improve robustness by preventing potential cascading issues due to corrupted or inconsistent account data.
+- Parallel Processing: The current implementation processes each transaction synchronously. For increased performance, especially with large volumes of transactions, we could implement asynchronous processing. Using tokio::spawn would allow us to handle transactions concurrently.
+- Order Preservation for Client Transactions: When implementing async processing, it's crucial to maintain the order of transactions for each client. To achieve this, we would:
+  1) Group transactions by client to prevent out-of-order processing.
+  2) Use tokio::Mutex for each client account to ensure that only one transaction is processed at a time per client, preserving the sequence.
 - Implement concurrency to process multiple input files or streams simultaneously.
 - Logging to File: Instead of printing error messages to standard error, implement structured logging to a file. This will allow for better error tracking, facilitate debugging, and keep the program's output clean when run in production environments.
 - Enhance logging with different verbosity levels.

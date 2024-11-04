@@ -39,7 +39,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             Ok(transaction) => {
                 if let Err(e) = engine.process_transaction(transaction) {
                     // Error processing transaction: this will be logged to a file in future iterations.
-                    eprintln!("Failed to parse transaction record at line : {e}");
+                    eprintln!("An error has occured on transaction processing : {e}");
                     error_count += 1;
                 } else {
                     successful_count += 1;
@@ -47,11 +47,10 @@ fn main() -> Result<(), Box<dyn Error>> {
             }
             Err(e) => {
                 eprintln!(
-                    "Failed to parse transaction record at line {}: {}. Parsing error is critical. Program will exit.",
+                    "Failed to parse transaction record at line {}: {}.",
                     e.position().map_or("unknown".to_string(), |pos| pos.line().to_string()),
                     e
                 );
-                process::exit(1);
             }
         }
     }
