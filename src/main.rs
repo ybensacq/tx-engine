@@ -17,7 +17,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         start_time.format("%Y-%m-%d %H:%M:%S")
     );
 
-    // Retrieve command-line arguments
     let args: Vec<String> = env::args().collect();
     if args.len() != 2 {
         eprintln!("Usage: {} <transactions.csv>", args[0]);
@@ -26,12 +25,10 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let input_path = &args[1];
 
-    // Initialize the transaction engine
     let mut engine = engine::Engine::new();
     let mut successful_count = 0;
     let mut error_count = 0;
 
-    // Read the CSV file and process each transaction
     let mut rdr = csv::Reader::from_path(input_path)?;
     for result in rdr.deserialize() {
         // Process each transaction and handle any errors
@@ -55,7 +52,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     }
 
-    // Write the final state of accounts to standard output
     let mut accounts: Vec<&Account> = engine.accounts.values().collect();
     accounts.sort_by_key(|account| account.client);
     let mut wtr = WriterBuilder::new().from_writer(std::io::stdout());
